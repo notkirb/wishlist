@@ -24,6 +24,8 @@
     import Markdown from "$lib/components/Markdown.svelte";
     import ListStatistics from "$lib/components/wishlists/ListStatistics.svelte";
     import type { ActionReturn } from "svelte/action";
+    import GroupBy from "$lib/components/wishlists/chips/GroupBy.svelte";
+    import { SvelteURLSearchParams } from "svelte/reactivity";
 
     const { data }: PageProps = $props();
     const t = getFormatter();
@@ -78,15 +80,25 @@
         allItems = data.list.items;
     });
 
-    const groupItems = (items: ItemOnListDTO[]) => {
+    const groupByOption = $derived(page.url.searchParams.get("group"));
+
+    const groupedItems = $derived.by(() => {
         // When on own list, don't separate out claimed vs un-claimed
         if (data.list.owner.isMe) {
-            return [items, []];
+            return [allItems, []];
         }
-        return items.reduce(
+        const groupCondition = (item: ItemOnListDTO) => {
+            if (groupByOption === "suggested") {
+                return item.userId === item.addedBy.id;
+            } else {
+                const userHasClaimed = item.claims.find((c) => data.user?.id && c.claimedBy?.id === data.user.id);
+                return item.isClaimable && !userHasClaimed;
+            }
+        };
+
+        return allItems.reduce(
             (g, v) => {
-                const userHasClaimed = v.claims.find((c) => data.user?.id && c.claimedBy?.id === data.user.id);
-                if (v.isClaimable && !userHasClaimed) {
+                if (groupCondition(v)) {
                     g[0].push(v);
                 } else {
                     g[1].push(v);
@@ -95,7 +107,7 @@
             },
             [[], []] as ItemOnListDTO[][]
         );
-    };
+    });
 
     const updateHash = async () => {
         const userHash = await hash(data.list.id);
@@ -215,6 +227,21 @@
     };
 </script>
 
+{#snippet itemCard(item: ItemOnListDTO, reordering = false)}
+    <ItemCard
+        groupId={data.list.groupId}
+        {item}
+        onDecreasePriority={handleDecreasePriority}
+        onIncreasePriority={handleIncreasePriority}
+        reorderActions={reordering}
+        requireClaimEmail={data.requireClaimEmail}
+        showClaimForOwner={data.showClaimForOwner}
+        showClaimedName={data.showClaimedName}
+        user={data.loggedInUser}
+        userCanManage={data.list.isManager}
+    />
+{/snippet}
+
 {#if data.list.description}
     <div class="w-full pb-4">
         {#if !hideDescription}
@@ -230,15 +257,18 @@
 {/if}
 
 <!-- chips -->
-<div class="flex flex-wrap justify-between gap-2 pb-4">
-    <div class="flex flex-row flex-wrap items-center gap-2">
+<div class="flex flex-wrap-reverse items-start justify-between gap-2 pb-2">
+    <div class="flex flex-row flex-wrap gap-2">
         {#if !data.list.owner.isMe}
             <ClaimFilterChip />
         {/if}
         <SortBy />
+        {#if !data.list.owner.isMe}
+            <GroupBy />
+        {/if}
     </div>
     {#if data.list.owner.isMe || data.list.isManager}
-        <div class="flex flex-row flex-wrap items-center gap-2">
+        <div class="flex flex-row flex-wrap gap-2">
             <ReorderChip onFinalize={handleReorderFinalize} bind:reordering />
             <ManageListChip onclick={() => goto(`${new URL(page.url).pathname}/manage`)} />
         </div>
@@ -246,7 +276,7 @@
 </div>
 
 {#if data.list.owner.isMe || data.list.isManager}
-    <div class="flex flex-wrap-reverse justify-between gap-2 pb-4">
+    <div class="flex flex-wrap-reverse items-start justify-between gap-2 pb-4">
         <ListStatistics {items} />
         {#if data.listMode === "registry" || data.list.public}
             <div class="flex h-fit flex-row gap-x-2">
@@ -272,15 +302,7 @@
         <div class="flex flex-col space-y-4" data-testid="approvals-container">
             {#each approvals as item (item.id)}
                 <div in:receive={{ key: item.id }} out:send|local={{ key: item.id }} animate:flip={{ duration: 200 }}>
-                    <ItemCard
-                        groupId={data.list.groupId}
-                        {item}
-                        requireClaimEmail={data.requireClaimEmail}
-                        showClaimForOwner={data.showClaimForOwner}
-                        showClaimedName={data.showClaimedName}
-                        user={data.loggedInUser}
-                        userCanManage={data.list.isManager}
-                    />
+                    {@render itemCard(item)}
                 </div>
             {/each}
         </div>
@@ -312,40 +334,33 @@
         {#if reordering}
             {#each items as item (item.id)}
                 <div animate:flip={{ duration: flipDurationMs }}>
-                    <ItemCard
-                        groupId={data.list.groupId}
-                        {item}
-                        onDecreasePriority={handleDecreasePriority}
-                        onIncreasePriority={handleIncreasePriority}
-                        reorderActions
-                        requireClaimEmail={data.requireClaimEmail}
-                        showClaimForOwner={data.showClaimForOwner}
-                        showClaimedName={data.showClaimedName}
-                        user={data.loggedInUser}
-                        userCanManage={data.list.isManager}
-                    />
+                    {@render itemCard(item, reordering)}
                 </div>
             {/each}
         {:else}
-            {#each groupItems(items) as groupedItems}
-                {#each groupedItems as item (item.id)}
-                    <div
-                        in:receive={{ key: item.id }}
-                        out:send|local={{ key: item.id }}
-                        animate:flip={{ duration: flipDurationMs }}
-                    >
-                        <ItemCard
-                            groupId={data.list.groupId}
-                            {item}
-                            onPublicList={!data.loggedInUser && data.list.public}
-                            requireClaimEmail={data.requireClaimEmail}
-                            showClaimForOwner={data.showClaimForOwner}
-                            showClaimedName={data.showClaimedName}
-                            user={data.loggedInUser}
-                            userCanManage={data.list.isManager}
-                        />
-                    </div>
-                {/each}
+            {#each groupedItems[0] as item (item.id)}
+                <div
+                    in:receive={{ key: item.id }}
+                    out:send|local={{ key: item.id }}
+                    animate:flip={{ duration: flipDurationMs }}
+                >
+                    {@render itemCard(item)}
+                </div>
+            {/each}
+            <div class="flex flex-col gap-1">
+                <span>{groupByOption === "suggested" ? "Suggested items" : "Claimed items"}</span>
+                {#if groupByOption === "suggested"}
+                    <span class="subtext">Items added by others, not visible to {data.list.owner.name}</span>
+                {/if}
+            </div>
+            {#each groupedItems[1] as item (item.id)}
+                <div
+                    in:receive={{ key: item.id }}
+                    out:send|local={{ key: item.id }}
+                    animate:flip={{ duration: flipDurationMs }}
+                >
+                    {@render itemCard(item)}
+                </div>
             {/each}
         {/if}
     </div>

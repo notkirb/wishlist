@@ -203,11 +203,13 @@ export const getItems = async (listId: string, options: GetItemsOptions) => {
         include: getItemInclusions(list.id)
     });
 
+    const userFilter = getValidUserFilter(options);
+
     const itemDTOs = items
         // need to filter out items not on a list because prisma generates a stupid query
         .filter((item) => item.lists.length > 0)
         .map((i) => toItemOnListDTO(i, list.id))
-        .filter(claimFilter(options.filter, options.loggedInUserId));
+        .filter(claimFilter(userFilter, options.listOwnerId, options.loggedInUserId));
 
     if (options.sort === "price") {
         if (options.sortDir === "desc") {
@@ -220,6 +222,18 @@ export const getItems = async (listId: string, options: GetItemsOptions) => {
     }
 
     return itemDTOs;
+};
+
+const getValidUserFilter = (options: GetItemsOptions) => {
+    if (options.filter === "claimed" || options.filter === "unclaimed") {
+        return options.listOwnerId !== options.loggedInUserId ? options.filter : null;
+    }
+    if (options.filter === "suggested") {
+        return options.suggestionMethod === "surprise" && options.listOwnerId === options.loggedInUserId
+            ? null
+            : options.filter;
+    }
+    return options.filter;
 };
 
 const availableListSelection: Prisma.ListFindManyArgs["select"] = {

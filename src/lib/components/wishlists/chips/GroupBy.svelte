@@ -5,31 +5,19 @@
     const t = getFormatter();
     const options: Option[] = [
         {
-            value: "all",
-            displayValue: $t("general.all")
-        },
-        {
             value: "claimed",
             displayValue: $t("wishes.claimed")
         },
         {
-            value: "unclaimed",
-            displayValue: $t("wishes.unclaimed")
-        },
-        {
-            value: "owner",
-            displayValue: "Added by owner"
-        },
-        {
             value: "suggested",
-            displayValue: "Suggested"
+            displayValue: $t("wishes.added-by-group-by")
         }
     ];
 
-    const label = $t("wishes.filter");
+    const label = $t("wishes.group-by");
     const defaultOption = options[0];
-    const searchParam = "filter";
-    const prefix = "ion:filter";
+    const searchParam = "group";
+    const prefix = "ion:file-tray-full";
 </script>
 
 <BaseChip {defaultOption} {label} {options} {prefix} {searchParam} />

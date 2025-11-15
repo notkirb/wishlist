@@ -9,6 +9,7 @@
         options: Option[];
         defaultOption: Option;
         searchParam: string;
+        label?: string;
         directionParam?: string | undefined;
         prefix?: string;
         multiselect?: boolean;
@@ -20,6 +21,7 @@
         options,
         defaultOption,
         searchParam,
+        label,
         directionParam = undefined,
         prefix = undefined,
         multiselect = false,
@@ -118,34 +120,38 @@
 </script>
 
 <div class={["flex flex-row gap-x-4", clazz]} data-testid={testId}>
-    <button
-        class="variant-ringed-primary chip"
-        class:variant-ghost-primary={selectedOptions[0].value !== defaultOption.value}
-        use:popup={menuSettings}
-    >
-        {#if selectedOptions[0].direction === "asc"}
-            <iconify-icon icon="ion:arrow-up"></iconify-icon>
-        {:else if selectedOptions[0].direction === "desc"}
-            <iconify-icon icon="ion:arrow-down"></iconify-icon>
-        {:else if prefix}
-            <iconify-icon icon={prefix}></iconify-icon>
-        {/if}
-        <div class="flex gap-x-1">
-            <span>
-                {selectedOptions[0].displayValue}
-            </span>
-            {#if multiselect && selectedOptions.length > 1}
-                <span>
-                    +{selectedOptions.length - 1}
-                </span>
+    <div class="flex flex-col gap-1">
+        <span class="text-xs">{label}</span>
+        <button
+            class="variant-ringed-primary chip"
+            class:variant-ghost-primary={selectedOptions[0].value !== defaultOption.value}
+            use:popup={menuSettings}
+        >
+            {#if selectedOptions[0].direction === "asc"}
+                <iconify-icon icon="ion:arrow-up"></iconify-icon>
+            {:else if selectedOptions[0].direction === "desc"}
+                <iconify-icon icon="ion:arrow-down"></iconify-icon>
+            {:else if prefix}
+                <iconify-icon icon={prefix}></iconify-icon>
             {/if}
-        </div>
-        <iconify-icon
-            class="arrow text-xs duration-300 ease-out"
-            class:rotate-180={menuOpen}
-            icon="ion:caret-down"
-        ></iconify-icon>
-    </button>
+            <div class="flex gap-x-1">
+                <span>
+                    {selectedOptions[0].displayValue}
+                </span>
+                {#if multiselect && selectedOptions.length > 1}
+                    <span>
+                        +{selectedOptions.length - 1}
+                    </span>
+                {/if}
+            </div>
+            <iconify-icon
+                class="arrow text-xs duration-300 ease-out"
+                class:rotate-180={menuOpen}
+                icon="ion:caret-down"
+            ></iconify-icon>
+        </button>
+    </div>
+
     <nav class="card list-nav z-10 max-h-96 p-4 shadow-xl" data-popup={popupKey}>
         <ul class="max-h-72 overflow-scroll">
             {#each options as option (option.value + option.direction)}
